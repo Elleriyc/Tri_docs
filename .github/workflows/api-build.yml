@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env: 
-  IMAGE_NAME: iotapidoc
+  IMAGE_NAME: backend
 
 jobs:
   build:
@@ -30,6 +30,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./src/api
+          file: ./backend.dockerfile
           push: true
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
