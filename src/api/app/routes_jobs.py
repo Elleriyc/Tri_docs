@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from .models_jobs import JobCreateRequest, job_to_entity, JobCreateResponse
 from .cosmos import get_cosmos_container
 from azure.cosmos.exceptions import CosmosHttpResponseError
-
+from .blob_service import generate_url_upload_sas
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -14,7 +14,11 @@ def create_job(req: JobCreateRequest):
         container.create_item(body=entity)
     except CosmosHttpResponseError as e:
         raise HTTPException(status_code=500, detail=f"Cosmos error: {getattr(e, 'message', str(e))}")
-    return JobCreateResponse(job_id=entity["id"], status=entity["status"], created_at=entity["created_at"], category=entity["category"])
+
+    blob_path= f"input/{entity['id']}/{req.fileName}"
+    upload_url = generate_url_upload_sas(blob_path)
+
+    return JobCreateResponse(job_id=entity["id"], status=entity["status"], created_at=entity["created_at"], category=entity["category"],upload_url=upload_url)
 
 @router.get("", status_code=200)
 def get_jobs():

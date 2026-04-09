@@ -3,9 +3,9 @@ from typing import Dict, Any
 import uuid 
 from datetime import datetime,timezone
 class JobCreateRequest(BaseModel):
-    file_name: str = Field(..., min_length=3)
-    contentType: str = Field(default="application/octet-stream")
-    
+    fileName: str = Field(..., min_length=3)
+    contentType: str = Field(default="application/pdf")
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -17,8 +17,8 @@ def job_to_entity(req:JobCreateRequest) -> Dict[str, Any]:
         "pk": "JOB",
         "created_at": ts,
         "updated_at": ts,
-        "file_name": req.file_name,
-        "content_type": req.contentType,
+        "fileName": req.fileName,
+        "contentType": req.contentType,
         "status": "CREATED",
         "category": ""
     }
@@ -28,3 +28,4 @@ class JobCreateResponse(BaseModel):
     status: str
     created_at: str
     category: str
+    upload_url: str

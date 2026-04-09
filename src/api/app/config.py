@@ -6,5 +6,7 @@ class Settings(BaseSettings):
     cosmos_key: str
     cosmos_database: str
     cosmos_container: str
-    
+    blob_connection_string: str
+    blob_container: str
+
 settings = Settings()  # type: ignore[call-arg]
