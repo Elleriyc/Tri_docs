@@ -32,7 +32,7 @@ export default function UploadPage() {
     setCopied(false);
     setJobStatus("loading");
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+    const apiUrl = "https://tris-docs-web-e6d2bjbnbuajh0ev.germanywestcentral-01.azurewebsites.net";
 
     try {
       const res = await fetch(`${apiUrl}/jobs`, {
