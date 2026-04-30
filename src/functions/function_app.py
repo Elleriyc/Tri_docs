@@ -40,6 +40,7 @@ def WorkerUpload(myblob: func.InputStream):
         item["status"] = "UPLOADED"
         item["updated_at"] = datetime.now(timezone.utc).isoformat()
         container.replace_item(item=job_id, body=item)
+        logging.info("Test functions")
         logging.info(f"Job {job_id} status updated to UPLOADED")
     except CosmosHttpResponseError as e:
         logging.error(f"CosmosDB error for job {job_id}: {e}")
