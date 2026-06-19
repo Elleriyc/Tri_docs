@@ -469,11 +469,10 @@ def ProcessDLQ(msg: func.ServiceBusMessage):
 
 @app.route(route="negotiate", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
 def negotiate(req: func.HttpRequest) -> func.HttpResponse:
-    import hmac
-    import hashlib
-    import base64
     import time
     import json
+    import base64
+    import jwt
 
     conn_str = os.environ["SIGNALR_CONNECTION_STRING"]
     params = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
@@ -482,41 +481,23 @@ def negotiate(req: func.HttpRequest) -> func.HttpResponse:
 
     hub = "notifications"
     hub_url = f"{endpoint}/client/?hub={hub}"
-    expiry = int(time.time()) + 3600
 
     try:
         key_bytes = base64.b64decode(access_key + "==")
     except Exception:
         key_bytes = access_key.encode()
 
-    # Build JWT
-    header = base64.urlsafe_b64encode(
-        json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
-    ).rstrip(b"=").decode()
-
-    payload = base64.urlsafe_b64encode(
-        json.dumps({
+    token = jwt.encode(
+        {
             "aud": hub_url,
-            "exp": expiry,
+            "exp": int(time.time()) + 3600,
             "iat": int(time.time()),
-        }).encode()
-    ).rstrip(b"=").decode()
+        },
+        key_bytes,
+        algorithm="HS256",
+    )
 
-    signing_input = f"{header}.{payload}"
-    signature = base64.urlsafe_b64encode(
-        hmac.new(
-            key_bytes,
-            signing_input.encode("utf-8"),
-            hashlib.sha256
-        ).digest()
-    ).rstrip(b"=").decode()
-
-    jwt_token = f"{signing_input}.{signature}"
-
-    result = {
-        "url": hub_url,
-        "accessToken": jwt_token,
-    }
+    result = {"url": hub_url, "accessToken": token}
 
     return func.HttpResponse(
         json.dumps(result),
