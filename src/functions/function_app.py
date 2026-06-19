@@ -469,11 +469,11 @@ def ProcessDLQ(msg: func.ServiceBusMessage):
 
 @app.route(route="negotiate", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
 def negotiate(req: func.HttpRequest) -> func.HttpResponse:
-    import urllib.parse
     import hmac
     import hashlib
     import base64
     import time
+    import json
 
     conn_str = os.environ["SIGNALR_CONNECTION_STRING"]
     params = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
@@ -484,26 +484,45 @@ def negotiate(req: func.HttpRequest) -> func.HttpResponse:
     hub_url = f"{endpoint}/client/?hub={hub}"
     expiry = int(time.time()) + 3600
 
-    string_to_sign = f"{hub_url}\n{expiry}"
     try:
-        key_bytes = base64.b64decode(access_key)
+        key_bytes = base64.b64decode(access_key + "==")
     except Exception:
         key_bytes = access_key.encode()
 
-    signature = base64.b64encode(
-        hmac.new(key_bytes, string_to_sign.encode("utf-8"), hashlib.sha256).digest()
-    ).decode()
+    # Build JWT
+    header = base64.urlsafe_b64encode(
+        json.dumps({"alg": "HS256", "typ": "JWT"}).encode()
+    ).rstrip(b"=").decode()
 
-    token = (
-        f"Audience={urllib.parse.quote(hub_url, safe='')}"
-        f"&Expires={expiry}"
-        f"&Signature={urllib.parse.quote(signature, safe='')}"
-    )
+    payload = base64.urlsafe_b64encode(
+        json.dumps({
+            "aud": hub_url,
+            "exp": expiry,
+            "iat": int(time.time()),
+        }).encode()
+    ).rstrip(b"=").decode()
 
-    body = json.dumps({"url": hub_url, "accessToken": token})
+    signing_input = f"{header}.{payload}"
+    signature = base64.urlsafe_b64encode(
+        hmac.new(
+            key_bytes,
+            signing_input.encode("utf-8"),
+            hashlib.sha256
+        ).digest()
+    ).rstrip(b"=").decode()
+
+    jwt_token = f"{signing_input}.{signature}"
+
+    result = {
+        "url": hub_url,
+        "accessToken": jwt_token,
+    }
+
     return func.HttpResponse(
-        body,
-        status_code=200,
+        json.dumps(result),
         mimetype="application/json",
-        headers={"Access-Control-Allow-Origin": "*"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+        },
     )
