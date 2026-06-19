@@ -166,9 +166,13 @@ def WorkerUpload(myblob: func.InputStream):
     try:
         container = get_cosmos_container()
         item = container.read_item(item=job_id, partition_key="JOB")
-        item["status"] = "UPLOADED"
-        item["updated_at"] = uploaded_at
-        container.replace_item(item=job_id, body=item)
+        current_status = item.get("status", "CREATED")
+        # Ne pas rétrograder un statut déjà avancé
+        advanced_statuses = {"PROCESSING", "PROCESSED", "QUEUED", "ERROR"}
+        if current_status not in advanced_statuses:
+            item["status"] = "UPLOADED"
+            item["updated_at"] = uploaded_at
+            container.replace_item(item=job_id, body=item)
         logging.info(json.dumps({
             "correlationId": correlation_id,
             "documentId": job_id,
