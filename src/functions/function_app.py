@@ -133,7 +133,7 @@ def generate_tags(file_name: str) -> list:
 # 1. Blob Trigger — extended
 # ---------------------------------------------------------------------------
 
-@app.blob_trigger(arg_name="myblob", path="docs",
+@app.blob_trigger(arg_name="myblob", path="docs/{name}",
                   connection="tristockage_STORAGE")
 def WorkerUpload(myblob: func.InputStream):
     correlation_id = str(uuid.uuid4())
