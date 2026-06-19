@@ -450,7 +450,7 @@ def ProcessDLQ(msg: func.ServiceBusMessage):
             "message": f"CosmosDB ERROR update failed: {e}",
         }))
 
-    # --- SignalR: ERROR ---
+    # --- SignalR: ERROR error ---
     try:
         send_signalr_notification({
             "documentId": document_id,
