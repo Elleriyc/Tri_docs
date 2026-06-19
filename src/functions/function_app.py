@@ -150,6 +150,10 @@ def WorkerUpload(myblob: func.InputStream):
         return
 
     parts = myblob.name.split("/")
+    # Retirer le préfixe du container "docs" s'il est présent
+    if parts and parts[0] == "docs":
+        parts = parts[1:]
+
     if len(parts) < 3 or parts[0] != "input":
         logging.warning(f"Unexpected blob path format: {myblob.name}")
         return
