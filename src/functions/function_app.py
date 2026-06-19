@@ -468,42 +468,11 @@ def ProcessDLQ(msg: func.ServiceBusMessage):
 # ---------------------------------------------------------------------------
 
 @app.route(route="negotiate", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
-def negotiate(req: func.HttpRequest) -> func.HttpResponse:
-    import time
-    import json
-    import base64
-    import jwt
-
-    conn_str = os.environ["SIGNALR_CONNECTION_STRING"]
-    params = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
-    endpoint = params.get("Endpoint", "").rstrip("/")
-    access_key = params.get("AccessKey", "")
-
-    hub = "notifications"
-    hub_url = f"{endpoint}/client/?hub={hub}"
-
-    try:
-        key_bytes = base64.b64decode(access_key + "==")
-    except Exception:
-        key_bytes = access_key.encode()
-
-    token = jwt.encode(
-        {
-            "aud": hub_url,
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
-        },
-        key_bytes,
-        algorithm="HS256",
-    )
-
-    result = {"url": hub_url, "accessToken": token}
-
-    return func.HttpResponse(
-        json.dumps(result),
-        mimetype="application/json",
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true",
-        },
-    )
+@app.generic_input_binding(
+    arg_name="signalRConnectionInfo",
+    type="signalRConnectionInfo",
+    hub_name="notifications",
+    connection="SIGNALR_CONNECTION_STRING",
+)
+def negotiate(req: func.HttpRequest, signalRConnectionInfo) -> func.HttpResponse:
+    return func.HttpResponse(signalRConnectionInfo)
