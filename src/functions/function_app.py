@@ -25,11 +25,9 @@ def get_cosmos_container():
 def send_signalr_notification(payload: dict) -> None:
     import urllib.request
     import urllib.error
-    import urllib.parse
-    import hmac
-    import hashlib
-    import base64
     import time
+    import json
+    import jwt
 
     conn_str = os.environ["SIGNALR_CONNECTION_STRING"]
     params = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
@@ -37,27 +35,26 @@ def send_signalr_notification(payload: dict) -> None:
     access_key = params.get("AccessKey", "")
 
     hub = "notifications"
-    url = f"{endpoint}/api/v1/hubs/{hub}"
+    api_url = f"{endpoint}/api/v1/hubs/{hub}"
+    now = int(time.time())
 
-    expiry = int(time.time()) + 300
-    string_to_sign = f"{url}\n{expiry}"
-    try:
-        key_bytes = base64.b64decode(access_key)
-    except Exception:
-        key_bytes = access_key.encode()
-
-    signature = base64.b64encode(
-        hmac.new(key_bytes, string_to_sign.encode("utf-8"), hashlib.sha256).digest()
-    ).decode()
-    token = (
-        f"Audience={urllib.parse.quote(url, safe='')}"
-        f"&Expires={expiry}"
-        f"&Signature={urllib.parse.quote(signature, safe='')}"
+    token = jwt.encode(
+        {
+            "aud": api_url,
+            "exp": now + 300,
+            "iat": now,
+        },
+        access_key,
+        algorithm="HS256",
     )
 
-    body = json.dumps({"target": "documentUpdate", "arguments": [payload]}).encode("utf-8")
+    body = json.dumps({
+        "target": "documentUpdate",
+        "arguments": [payload]
+    }).encode("utf-8")
+
     request = urllib.request.Request(
-        url,
+        api_url,
         data=body,
         headers={
             "Authorization": f"Bearer {token}",
