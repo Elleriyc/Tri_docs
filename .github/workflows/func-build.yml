@@ -9,6 +9,10 @@ on:
       - ".github/workflows/func-build.yml"
   workflow_dispatch:
 
+concurrency:
+  group: azure-functions-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
