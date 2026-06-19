@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-    - "/**"
+    - "src/api/**"
     - ".github/workflows/api-build.yml"
   workflow_dispatch:
 
