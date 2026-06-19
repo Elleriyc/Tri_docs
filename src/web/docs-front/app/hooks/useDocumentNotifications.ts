@@ -22,7 +22,7 @@ export function useDocumentNotifications(documentId: string | null): {
     if (!documentId) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${process.env.NEXT_PUBLIC_FUNCTIONS_URL ?? "http://localhost:7071"}/api/negotiate`, {
+      .withUrl(`${process.env.NEXT_PUBLIC_FUNCTIONS_URL ?? "http://localhost:7071"}/api`, {
         withCredentials: false
       })
       .withAutomaticReconnect()
