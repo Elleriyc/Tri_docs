@@ -52,7 +52,7 @@ def create_job(req: JobCreateRequest):
 
 @router.get("", status_code=200)
 def get_jobs():
-    return {"message": "ok"}
+    return {"message": "ok !"}
 
 @router.get("/{job_id}", status_code=200)
 def get_job(job_id: str):
