@@ -467,12 +467,43 @@ def ProcessDLQ(msg: func.ServiceBusMessage):
 # 4. SignalR Negotiate
 # ---------------------------------------------------------------------------
 
-@app.route(route="negotiate", auth_level=func.AuthLevel.ANONYMOUS)
-@app.generic_input_binding(
-    arg_name="signalRConnectionInfo",
-    type="signalRConnectionInfo",
-    hub_name="notifications",
-    connection="SIGNALR_CONNECTION_STRING",
-)
-def negotiate(req: func.HttpRequest, signalRConnectionInfo) -> func.HttpResponse:
-    return func.HttpResponse(signalRConnectionInfo)
+@app.route(route="negotiate", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
+def negotiate(req: func.HttpRequest) -> func.HttpResponse:
+    import urllib.parse
+    import hmac
+    import hashlib
+    import base64
+    import time
+
+    conn_str = os.environ["SIGNALR_CONNECTION_STRING"]
+    params = dict(p.split("=", 1) for p in conn_str.split(";") if "=" in p)
+    endpoint = params.get("Endpoint", "").rstrip("/")
+    access_key = params.get("AccessKey", "")
+
+    hub = "notifications"
+    hub_url = f"{endpoint}/client/?hub={hub}"
+    expiry = int(time.time()) + 3600
+
+    string_to_sign = f"{hub_url}\n{expiry}"
+    try:
+        key_bytes = base64.b64decode(access_key)
+    except Exception:
+        key_bytes = access_key.encode()
+
+    signature = base64.b64encode(
+        hmac.new(key_bytes, string_to_sign.encode("utf-8"), hashlib.sha256).digest()
+    ).decode()
+
+    token = (
+        f"Audience={urllib.parse.quote(hub_url, safe='')}"
+        f"&Expires={expiry}"
+        f"&Signature={urllib.parse.quote(signature, safe='')}"
+    )
+
+    body = json.dumps({"url": hub_url, "accessToken": token})
+    return func.HttpResponse(
+        body,
+        status_code=200,
+        mimetype="application/json",
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
