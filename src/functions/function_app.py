@@ -3,6 +3,8 @@ import logging
 import os
 import json
 import uuid
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from azure.cosmos import CosmosClient
 from azure.cosmos.exceptions import CosmosHttpResponseError
@@ -89,21 +91,64 @@ def publish_to_service_bus(message_body: dict) -> None:
 
 def generate_tags(file_name: str) -> list:
     import re
-    # Extract extension before cleaning
+    import json
+    import os
+
+    # Tenter l'appel OpenAI
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if openai_key:
+        try:
+            prompt = f"""Analyse le nom de fichier suivant et génère entre 3 et 8 tags courts en français.
+Nom du fichier : {file_name}
+Retourne uniquement un tableau JSON de chaînes, sans explication ni markdown."""
+
+            body = json.dumps({
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 100,
+                "temperature": 0.3,
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/chat/completions",
+                data=body,
+                headers={
+                    "Authorization": f"Bearer {openai_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                content = data["choices"][0]["message"]["content"].strip()
+                tags = json.loads(content)
+                if isinstance(tags, list) and len(tags) >= 3:
+                    logging.info(json.dumps({
+                        "step": "AI_TAGGING",
+                        "status": "SUCCESS",
+                        "message": f"OpenAI tags: {tags}",
+                    }))
+                    return tags[:8]
+        except Exception as e:
+            logging.warning(json.dumps({
+                "step": "AI_TAGGING",
+                "status": "FALLBACK",
+                "message": f"OpenAI failed, using rules: {e}",
+            }))
+
+    # Fallback par règles
     ext = ""
     if "." in file_name:
         ext = file_name.rsplit(".", 1)[-1].lower()
 
-    # Clean: replace _, -, . with spaces; lowercase; remove extension
     cleaned = re.sub(r"[_\-.]", " ", file_name).lower()
-    # Remove extension portion at end
     if ext:
         cleaned = re.sub(rf"\s*{re.escape(ext)}\s*$", "", cleaned)
 
     words = cleaned.split()
+    STOPWORDS = {"le","la","les","de","du","des","un","une","et","ou","en","au","aux","par","pour","sur","dans","avec"}
     tags = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
 
-    # Contextual tags
     if any(w in ("cv", "resume") for w in tags):
         tags.append("rh")
     if any(w in ("facture", "invoice") for w in tags):
@@ -112,11 +157,9 @@ def generate_tags(file_name: str) -> list:
         tags.append("juridique")
     if any(w in ("rapport", "report") for w in tags):
         tags.append("rapport")
-
     if ext:
         tags.append(ext)
 
-    # Deduplicate preserving order, keep 3-8 tags
     seen = set()
     unique = []
     for t in tags:
