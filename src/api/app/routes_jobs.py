@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -24,6 +25,27 @@ def create_job(req: JobCreateRequest):
 
     blob_path= f"input/{entity['id']}/{req.fileName}"
     upload_url = generate_url_upload_sas(blob_path)
+
+    try:
+        conn_str = os.environ.get("SERVICE_BUS_CONNECTION_STRING", "")
+        queue_name = os.environ.get("SERVICE_BUS_QUEUE_NAME", "document-processing")
+        if conn_str:
+            message_body = {
+                "documentId": entity["id"],
+                "fileName": req.fileName,
+                "blobName": blob_path,
+                "size": 0,
+                "uploadedAt": entity["created_at"],
+                "correlationId": str(uuid.uuid4()),
+            }
+            with ServiceBusClient.from_connection_string(conn_str) as client:
+                with client.get_queue_sender(queue_name) as sender:
+                    sender.send_messages(ServiceBusMessage(json.dumps(message_body)))
+            entity["status"] = "QUEUED"
+            entity["updated_at"] = entity["created_at"]
+            container.replace_item(item=entity["id"], body=entity)
+    except Exception as e:
+        logging.warning(f"Service Bus publish failed: {e}")
 
     return JobCreateResponse(job_id=entity["id"], status=entity["status"], created_at=entity["created_at"], category=entity["category"],upload_url=upload_url)
 
