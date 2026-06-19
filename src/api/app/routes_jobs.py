@@ -45,7 +45,8 @@ def create_job(req: JobCreateRequest):
             entity["updated_at"] = entity["created_at"]
             container.replace_item(item=entity["id"], body=entity)
     except Exception as e:
-        logging.warning(f"Service Bus publish failed: {e}")
+        logging.error(f"Service Bus publish failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Service Bus error: {str(e)}")
 
     return JobCreateResponse(job_id=entity["id"], status=entity["status"], created_at=entity["created_at"], category=entity["category"],upload_url=upload_url)
 
