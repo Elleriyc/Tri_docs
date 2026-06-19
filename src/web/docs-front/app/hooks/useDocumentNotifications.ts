@@ -24,7 +24,15 @@ export function useDocumentNotifications(documentId: string | null): {
     const functionsUrl = process.env.NEXT_PUBLIC_FUNCTIONS_URL ?? "http://localhost:7071";
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${functionsUrl}/api/negotiate`, {
+      .withUrl("https://tri-docs.service.signalr.net/client/?hub=notifications", {
+        accessTokenFactory: async () => {
+          const res = await fetch(
+            `${functionsUrl}/api/negotiate`,
+            { credentials: "omit" }
+          );
+          const data = await res.json();
+          return data.accessToken;
+        },
         withCredentials: false,
       })
       .withAutomaticReconnect()
